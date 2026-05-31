@@ -1,0 +1,7 @@
+Iteration #1 Open: [('A', 0, None)]
+Iteration #1 Close: []
+Iteration #2 Open: [('S', 140, 'A'), ('Z', 75, 'A'), ('T', 118, 'A')]
+Iteration #2 Close: [('A', 0)]
+Iteration #3 Open: [('F', 239, 'S'), ('R', 220, 'S'), ('Z', 75, 'A'), ('T', 118, 'A'), ('O', 291, 'S')]
+Iteration #3 Close: [('A', 0), ('S', 140)]
+Solution : A -> S -> F
