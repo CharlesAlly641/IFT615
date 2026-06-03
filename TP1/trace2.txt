@@ -1,0 +1,7 @@
+Iteration #1 Open: [('V', 0, None)]
+Iteration #1 Close: []
+Iteration #2 Open: [('U', 142, 'V'), ('I', 92, 'V')]
+Iteration #2 Close: [('V', 0)]
+Iteration #3 Open: [('B', 227, 'U'), ('I', 92, 'V'), ('H', 240, 'U')]
+Iteration #3 Close: [('V', 0), ('U', 142)]
+Solution : V -> U -> B

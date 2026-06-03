@@ -56,7 +56,7 @@ def initialiser():
 def reconstruire_chemin(x, liste_close):
     solution = []
     final = x[0]
-    with open('trace1.txt', 'a') as f:
+    with open('trace2.txt', 'a') as f:
         f.write(f"Solution : ")
         while x[2] != None:
             solution.append(x[0])
@@ -85,7 +85,7 @@ def meilleur_chemin(depart, arrivee, distance_points, coordonnees):
     compteur = 1
 
     while liste_open:
-        with open('trace1.txt', 'a') as f:
+        with open('trace2.txt', 'a') as f:
             f.write(f"Iteration #{compteur} Open: {[t[:3] for t in liste_open]}\n")
             f.write(f"Iteration #{compteur} Close: {[t[:2] for t in liste_close]}\n")
 
