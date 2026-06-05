@@ -53,11 +53,11 @@ def initialiser():
 
     return dict_distances, dict_coordonnees
 
-def reconstruire_chemin(x, liste_close):
+def reconstruire_chemin(x, liste_close, fichier):
     solution = []
     final = x[0]
-    with open('trace2.txt', 'a') as f:
-        f.write(f"Solution : ")
+    with open(fichier, 'a') as f:
+        f.write(f"\n--- Solution trouvee ---\n ")
         while x[2] != None:
             solution.append(x[0])
             for noeud in liste_close:
@@ -78,21 +78,30 @@ def calculer_heuristique(depart, arrivee, coordo):
 
 
 def meilleur_chemin(depart, arrivee, distance_points, coordonnees):
-#   nomenclature open  : (point, g(n), parent, f(n))
-#   nomenclature close : (point, g(n), parent)
-    liste_open = [(depart, 0, None, calculer_heuristique(depart, arrivee, coordonnees))]
+#   nomenclature open  : (noeud, g(n), parent, f(n), h(n))
+#   nomenclature close : (noeud, g(n), parent, f(n), h(n))
+    fichier = "trace2.txt"
+    liste_open = [(depart, 0, None, calculer_heuristique(depart, arrivee, coordonnees), calculer_heuristique(depart, arrivee, coordonnees))]
     liste_close = []
     compteur = 1
 
     while liste_open:
-        with open('trace2.txt', 'a') as f:
-            f.write(f"Iteration #{compteur} Open: {[t[:3] for t in liste_open]}\n")
-            f.write(f"Iteration #{compteur} Close: {[t[:2] for t in liste_close]}\n")
+        # - Itération 1 - Index : f = g + h, parent
+        with open(fichier, 'a') as f:
+            f.write(f"--- Iteration #{compteur} ---\n")
+            f.write(f"Pile open : ")
+            for t in liste_open:
+                f.write(f"({t[0]} : {t[3]:.2f} = {t[1]:.2f} + {t[4]:.2f}, {t[2]}) ")
+            f.write(f"\nPile close : ")
+            for t in liste_close:
+                f.write(f"({t[0]} : {t[3]:.2f} = {t[1]:.2f} + {t[4]:.2f}, {t[2]}) ")
+            f.write(f"\n")
+
 
         x = liste_open.pop(0)
         if x[0] == arrivee:
             print(f'Chemin trouvé vers {arrivee}')
-            reconstruire_chemin(x, liste_close)
+            reconstruire_chemin(x, liste_close, fichier)
             break
         else:
             # Générer les enfants de x
@@ -115,19 +124,19 @@ def meilleur_chemin(depart, arrivee, distance_points, coordonnees):
 
                 if not noeud_dans_open and not noeud_dans_close:
                     # L'enfant n'est ni dans open, ni dans close
-                    liste_open.append((enfant, g, x[0], f))
+                    liste_open.append((enfant, g, x[0], f, h))
 
                 elif noeud_dans_open:
                     # L'enfant est dans open, on vérifie si le nouveau chemin est meilleur
                     if g < noeud_dans_open[1]:
                         liste_open.remove(noeud_dans_open)
-                        liste_open.append((enfant, g, x[0], f))
+                        liste_open.append((enfant, g, x[0], f, h))
 
                 elif noeud_dans_close:
                     # L'enfant est dans close, on vérifie si le nouveau chemin est meilleur
                     if g < noeud_dans_close[1]:
                         liste_close.remove(noeud_dans_close)
-                        liste_open.append((enfant, g, x[0], f))
+                        liste_open.append((enfant, g, x[0], f, h))
 
             liste_close.append(x)
             liste_open.sort(key=lambda noeud: noeud[3])
