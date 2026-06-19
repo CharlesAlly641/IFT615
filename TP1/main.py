@@ -86,7 +86,7 @@ def calculer_heuristique(depart, arrivee, coordo):
 def meilleur_chemin(depart, arrivee, distance_points, coordonnees):
 #   nomenclature open  : (noeud, g(n), parent, f(n), h(n))
 #   nomenclature close : (noeud, g(n), parent, f(n), h(n))
-    fichier = "trace2.txt"
+    fichier = "test.txt"
     liste_open = [(depart, 0, None, calculer_heuristique(depart, arrivee, coordonnees), calculer_heuristique(depart, arrivee, coordonnees))]
     liste_close = []
     compteur = 1
