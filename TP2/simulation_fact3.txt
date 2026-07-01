@@ -1,0 +1,92 @@
+
+** ATTENTION **
+** CECI EST UN SIMPLE EXEMPLE DE SIMULATION**
+
+
+/*-----------------------------------------------------------------------*/
+/* -------------------------- Description des opérateurs ----------------*/
+/*-----------------------------------------------------------------------*/
+
+(operator
+ LOAD
+ (params
+  (<object> CARGO) (<rocket> ROCKET) (<place> PLACE))
+ (preconds 
+  (at <rocket> <place>)  (at <object> <place>))
+ (effects 
+  (in <object> <rocket>) (del at <object> <place>)))
+
+(operator
+ UNLOAD
+ (params
+  (<object> CARGO) (<rocket> ROCKET) (<place>  PLACE))
+ (preconds 
+  (at <rocket> <place>)  (in <object> <rocket>))
+ (effects 
+  (at <object> <place>) (del in <object> <rocket>)))
+
+(operator
+ MOVE
+ (params
+  (<rocket> ROCKET) (<from> PLACE) (<to> PLACE))
+ (preconds 
+  (has-fuel <rocket>) (at <rocket> <from>))
+ (effects  
+  (at <rocket> <to>) (del has-fuel <rocket>) (del at <rocket> <from>)))
+
+/*-------------------------------------------------------------------------------*/
+/* ---------------- Description des conditions initiales et des objectifs -------*/
+/*-------------------------------------------------------------------------------*/
+
+/* 2 objects to be transported */
+
+(London PLACE)
+(Paris PLACE)
+(JFK PLACE)
+(r1 ROCKET)
+(r2 ROCKET)
+(alex CARGO)
+(jason CARGO)
+(bill CARGO)
+
+(preconds
+(at r1 London)
+(at r2 London)
+(at r3 Paris)
+(at alex London)
+(at jason London)
+(at bill London)
+(has-fuel r1)
+(has-fuel r2)
+(has-fuel r3))
+
+
+(effects
+(at alex Paris)
+(at jason JFK)
+(at bill Montreal))
+
+/*----------------------------------------------------------------------------*/
+/* ------------------------           Plan final      ------------------------*/
+/*----------------------------------------------------------------------------*/
+
+
+
+
+PLAN : 
+
+ LOAD_alex_r1_London
+ LOAD_bill_r1_London
+ LOAD_jason_r2_London
+ MOVE_r1_London_Paris
+ UNLOAD_alex_r1_Paris
+ UNLOAD_bill_r1_Paris
+ LOAD_bill_r3_Paris
+ MOVE_r2_London_JFK
+ UNLOAD_jason_r2_JFK
+ MOVE_r3_Paris_Montreal
+ UNLOAD_bill_r3_Montreal
+
+
+ceci n'est pas le seul plan possible. l'ordre des actions peut varier...
+
