@@ -1,0 +1,3 @@
+"""
+La construction du planning graph proprement dit : alterne niveaux de propositions et niveaux d'actions, ajoute les actions no-op pour la persistance, et calcule les ensembles de mutex (entre actions : inconsistance/interférence/préconditions conflictuelles ; entre propositions : négation ou support inconsistant). Expose une fonction pour étendre le graphe d'un niveau (`expand_graph`) et une pour vérifier si les buts sont tous non-mutex au dernier niveau.
+"""
