@@ -18,7 +18,7 @@ de propositions, mutex, etc.)
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
-from traitement_fichier import parse_all, SExpr
+from traitement_fichier import parse_all, Element
 
 Literal = Tuple[str, ...]  # ex: ("at", "r1", "London")  ou variable: ("at","<rocket>","<place>")
 
@@ -53,7 +53,7 @@ def _read_file(path: str) -> str:
     return raw.decode("latin-1", errors="replace")
 
 
-def _literal_from_sexpr(sexpr: SExpr) -> Literal:
+def _literal_from_sexpr(sexpr: Element) -> Literal:
     """Une S-expression comme ['at', '<rocket>', '<place>'] -> tuple."""
     assert isinstance(sexpr, list), f"littéral attendu, reçu: {sexpr}"
     return tuple(sexpr)
@@ -119,7 +119,7 @@ def parse_facts(path: str) -> Tuple[Dict[str, List[str]], frozenset, frozenset]:
     return objects_by_type, frozenset(initial_state), frozenset(goals)
 
 
-def _find_block(expr: List[SExpr], keyword: str) -> List[SExpr]:
+def _find_block(expr: List[Element], keyword: str) -> List[Element]:
     """Cherche le sous-bloc ['keyword', ...] dans expr et retourne son contenu."""
     for item in expr:
         if isinstance(item, list) and item and item[0] == keyword:

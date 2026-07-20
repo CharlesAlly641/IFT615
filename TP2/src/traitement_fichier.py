@@ -1,83 +1,75 @@
 """
-analyseur_parentheses.py
--------------------------
-Parseur générique de S-expressions (syntaxe façon Lisp) utilisé pour lire
-r_ops.txt et r_factX.txt du rocket domain (IFT615 - Devoir 2).
+Ce fichier permet d'analyser et de lire la structure des fichiers de texte
+tels que ceux fournis en exemple.
 
-Une S-expression est soit :
-  - un atome (chaîne sans espace ni parenthèse), ex: "LOAD", "<rocket>", "ROCKET"
-  - une liste de S-expressions entre parenthèses, ex: (at <rocket> <place>)
+Ce code transforme la structure du texte en listes Python
+Un bloc entre parenthèses `(...)` devient une liste Python (`list`).
 
-On la représente en Python par :
-  - un atome -> str
-  - une liste -> list (récursif)
+Exemple de conversion :
+  Texte source : "(at r1 London)"
+  Résultat     : ['at', 'r1', 'London']
 """
 
 from typing import List, Union
 
-SExpr = Union[str, List["SExpr"]]
-
+# Un élément est un mot ou une liste contenant d'autres éléments.
+Element = Union[str, List["Element"]]
 
 def tokenize(text: str) -> List[str]:
-    """Découpe le texte en tokens : '(', ')' et atomes.
+    """Découpe le texte du fichier en une liste de tokens."""
 
-    Gère les \\r\\n, les commentaires /* ... */ et les lignes vides
-    qu'on retrouve dans les fichiers fournis.
-    """
     # Normaliser les fins de ligne
     text = text.replace("\r\n", "\n").replace("\r", "\n")
 
-    # Retirer les commentaires de style /* ... */ (utilisés dans simulation_factX.txt)
-    text = _strip_block_comments(text)
+    # Retirer les commentaires
+    text = retirer_commentaires(text)
 
-    # Coller des espaces autour des parenthèses pour pouvoir les split()
+    # Ajout d'espace à côté des parenthèses pour pouvoir split()
     text = text.replace("(", " ( ").replace(")", " ) ")
 
     return text.split()
 
 
-def _strip_block_comments(text: str) -> str:
+def retirer_commentaires(text: str) -> str:
+    """Supprime tous les commentaires /* ... */ dans le texte."""
     out = []
     i = 0
     n = len(text)
     while i < n:
         if text[i:i + 2] == "/*":
+            # On cherche la fin du commentaire
             end = text.find("*/", i + 2)
             if end == -1:
-                break  # commentaire non fermé -> on ignore le reste
+                break  # commentaire non fermé
             i = end + 2
         else:
+            # Aucun commentaire
             out.append(text[i])
             i += 1
     return "".join(out)
 
 
-def parse_all(text: str) -> List[SExpr]:
-    """Parse un texte contenant plusieurs S-expressions au niveau racine.
-
-    Retourne la liste des S-expressions de premier niveau, dans l'ordre.
-    Ex: "(a b) (c d)" -> [['a', 'b'], ['c', 'd']]
-    """
+def parse_all(text: str) -> List[Element]:
+    """Analyse un texte complet contenant une ou plusieurs expressions entre parenthèses."""
     tokens = tokenize(text)
-    exprs = []
+    elements = []
     pos = 0
     while pos < len(tokens):
-        expr, pos = _parse_one(tokens, pos)
-        exprs.append(expr)
-    return exprs
+        element, pos = parse_one(tokens, pos)
+        elements.append(element)
+    return elements
 
 
-def _parse_one(tokens: List[str], pos: int):
-    """Parse une seule S-expression à partir de tokens[pos]. Retourne (expr, nouvelle_pos)."""
+def parse_one(tokens: List[str], pos: int):
+    """Analyse un seul bloc (mot ou sous-liste) à partir de la position donnée."""
     if tokens[pos] != "(":
-        # atome isolé (rare ici, mais géré par robustesse)
         return tokens[pos], pos + 1
 
     pos += 1  # on consomme '('
-    items: List[SExpr] = []
+    items: List[Element] = []
     while tokens[pos] != ")":
         if tokens[pos] == "(":
-            sub, pos = _parse_one(tokens, pos)
+            sub, pos = parse_one(tokens, pos)
             items.append(sub)
         else:
             items.append(tokens[pos])
@@ -86,8 +78,8 @@ def _parse_one(tokens: List[str], pos: int):
     return items, pos
 
 
+# Test local du fichier
 if __name__ == "__main__":
-    # petit test manuel
     sample = "(operator LOAD (params (<object> CARGO)) (preconds (at <rocket> <place>)))"
     import pprint
     pprint.pprint(parse_all(sample))
