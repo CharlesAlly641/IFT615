@@ -28,7 +28,7 @@ import sys
 import time
 
 from parseur_donnees import charger_probleme
-from instanciation import ground_all_operators
+from instanciation import instancier_tous_operateurs
 from planning_graph import PlanningGraph
 from graphplan import DoPlan, _extract_solution, _flatten_plan
 
@@ -72,7 +72,7 @@ def afficher_probleme(probleme, actions):
 def executer_avec_trace(fichier_ops, fichier_facts):
     """Rejoue l'algorithme en affichant le détail de chaque étape."""
     probleme = charger_probleme(fichier_ops, fichier_facts)
-    actions = ground_all_operators(probleme)
+    actions = instancier_tous_operateurs(probleme)
     graphe = PlanningGraph(probleme, actions)
     memo = {}
 
@@ -105,7 +105,7 @@ def executer_avec_trace(fichier_ops, fichier_facts):
                 print()
                 print("     Détail des niveaux du plan (actions parallèles) :")
                 for i, niveau in enumerate(solution, start=1):
-                    noms = sorted(a.name for a in niveau)
+                    noms = sorted(a.nom for a in niveau)
                     print(f"       Niveau {i} : {', '.join(noms) if noms else '(aucune action)'}")
                 print()
                 print(f"Temps total : {time.time() - depart:.2f}s")
@@ -138,7 +138,7 @@ def executer_avec_trace(fichier_ops, fichier_facts):
 
         niveau = graphe.depth
         actions_niveau = graphe.action_levels[-1]
-        vraies_actions = [a for a in actions_niveau if a.operator_name != "NOOP"]
+        vraies_actions = [a for a in actions_niveau if a.operateur != "NOOP"]
         propositions = graphe.prop_levels[-1]
 
         print(f"Niveau {niveau} (actions) : {len(actions_niveau)} actions "

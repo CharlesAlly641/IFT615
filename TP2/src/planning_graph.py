@@ -21,30 +21,30 @@ from dataclasses import dataclass, field
 from typing import FrozenSet, List, Set
 
 from parseur_donnees import Litteral, ProblemePlanification
-from instanciation import GroundedAction
+from instanciation import ActionInstanciee
 
 MutexPair = FrozenSet  # frozenset({a, b}) de taille 2
 
 
-def make_noop(literal: Litteral) -> GroundedAction:
+def make_noop(literal: Litteral) -> ActionInstanciee:
     """Action no-op : persiste un littéral d'un niveau à l'autre sans rien changer."""
-    return GroundedAction(
-        name=f"NOOP_{'_'.join(literal)}",
-        operator_name="NOOP",
+    return ActionInstanciee(
+        nom=f"NOOP_{'_'.join(literal)}",
+        operateur="NOOP",
         args=literal,
         preconds=frozenset({literal}),
-        add_effects=frozenset({literal}),
-        del_effects=frozenset(),
+        postconds=frozenset({literal}),
+        delete_effects=frozenset(),
     )
 
 
 @dataclass
 class PlanningGraph:
     problem: ProblemePlanification
-    all_actions: List[GroundedAction]
+    all_actions: List[ActionInstanciee]
 
     prop_levels: List[FrozenSet[Litteral]] = field(default_factory=list)
-    action_levels: List[FrozenSet[GroundedAction]] = field(default_factory=list)
+    action_levels: List[FrozenSet[ActionInstanciee]] = field(default_factory=list)
     action_mutex_levels: List[Set[MutexPair]] = field(default_factory=list)
     prop_mutex_levels: List[Set[MutexPair]] = field(default_factory=list)
 
@@ -82,7 +82,7 @@ class PlanningGraph:
 
         action_mutex = self._compute_action_mutex(level_actions, last_prop_mutex)
 
-        next_props = frozenset().union(*(a.add_effects for a in level_actions)) if level_actions else frozenset()
+        next_props = frozenset().union(*(a.postconds for a in level_actions)) if level_actions else frozenset()
         prop_mutex = self._compute_prop_mutex(next_props, level_actions, action_mutex)
 
         self.action_levels.append(frozenset(level_actions))
@@ -91,7 +91,7 @@ class PlanningGraph:
         self.prop_mutex_levels.append(prop_mutex)
 
     @staticmethod
-    def _has_mutex_preconds(action: GroundedAction, prop_mutex: Set[MutexPair]) -> bool:
+    def _has_mutex_preconds(action: ActionInstanciee, prop_mutex: Set[MutexPair]) -> bool:
         """Vrai si deux préconditions de l'action sont mutex entre elles."""
         preconds = list(action.preconds)
         for i in range(len(preconds)):
@@ -101,7 +101,7 @@ class PlanningGraph:
         return False
 
     def _compute_action_mutex(
-        self, actions: List[GroundedAction], prop_mutex_prev: Set[MutexPair]
+        self, actions: List[ActionInstanciee], prop_mutex_prev: Set[MutexPair]
     ) -> Set[MutexPair]:
         mutex_pairs: Set[MutexPair] = set()
 
@@ -115,14 +115,14 @@ class PlanningGraph:
 
     @staticmethod
     def _actions_are_mutex(
-        a1: GroundedAction, a2: GroundedAction, prop_mutex_prev: Set[MutexPair]
+        a1: ActionInstanciee, a2: ActionInstanciee, prop_mutex_prev: Set[MutexPair]
     ) -> bool:
         # 1. Inconsistance : l'une annule un effet de l'autre
-        if a1.add_effects & a2.del_effects or a2.add_effects & a1.del_effects:
+        if a1.postconds & a2.delete_effects or a2.postconds & a1.delete_effects:
             return True
 
         # 2. Interférence : l'une supprime une précondition de l'autre
-        if a1.del_effects & a2.preconds or a2.del_effects & a1.preconds:
+        if a1.delete_effects & a2.preconds or a2.delete_effects & a1.preconds:
             return True
 
         # 3. Ressources conflictuelles : préconditions mutex entre elles
@@ -136,11 +136,11 @@ class PlanningGraph:
     @staticmethod
     def _compute_prop_mutex(
         props: FrozenSet[Litteral],
-        actions: List[GroundedAction],
+        actions: List[ActionInstanciee],
         action_mutex: Set[MutexPair],
     ) -> Set[MutexPair]:
         # Pour chaque proposition, la liste des actions qui la produisent
-        producers = {p: [a for a in actions if p in a.add_effects] for p in props}
+        producers = {p: [a for a in actions if p in a.postconds] for p in props}
 
         prop_list = list(props)
         mutex_pairs: Set[MutexPair] = set()
@@ -173,8 +173,8 @@ class PlanningGraph:
 
     @staticmethod
     def _support_inconsistent(
-        producers_p1: List[GroundedAction],
-        producers_p2: List[GroundedAction],
+        producers_p1: List[ActionInstanciee],
+        producers_p2: List[ActionInstanciee],
         action_mutex: Set[MutexPair],
     ) -> bool:
         """Vrai si TOUTES les paires d'actions productrices de p1 et p2
@@ -223,13 +223,13 @@ class PlanningGraph:
 if __name__ == "__main__":
     import glob
     from parseur_donnees import charger_probleme
-    from instanciation import ground_all_operators
+    from instanciation import instancier_tous_operateurs
 
     ops_file = glob.glob("../*/r_ops.txt")[0]
     facts_file = glob.glob("../*/r_fact2.txt")[0]
 
     problem = charger_probleme(ops_file, facts_file)
-    actions = ground_all_operators(problem)
+    actions = instancier_tous_operateurs(problem)
 
     graph = PlanningGraph(problem, actions)
 

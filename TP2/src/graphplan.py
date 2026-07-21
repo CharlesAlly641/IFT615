@@ -32,13 +32,13 @@ DoPlan(r_ops, r_facts) est le point d'entrée demandé par l'énoncé.
 from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from parseur_donnees import charger_probleme, Litteral
-from instanciation import GroundedAction, ground_all_operators
+from instanciation import ActionInstanciee, instancier_tous_operateurs
 from planning_graph import PlanningGraph
 
 # Table de mémorisation : (niveau, ensemble de buts) -> plan trouvé, ou None
 # si on sait déjà que cet ensemble de buts est impossible à ce niveau.
 MemoKey = Tuple[int, FrozenSet[Litteral]]
-Memo = Dict[MemoKey, Optional[List[FrozenSet[GroundedAction]]]]
+Memo = Dict[MemoKey, Optional[List[FrozenSet[ActionInstanciee]]]]
 
 
 def _extract_solution(graph: PlanningGraph, goals: FrozenSet[Litteral],
@@ -73,7 +73,7 @@ def _extract_solution(graph: PlanningGraph, goals: FrozenSet[Litteral],
 
 
 def _choose_actions(graph: PlanningGraph, remaining_goals: List[Litteral],
-                    chosen: FrozenSet[GroundedAction], level: int, memo: Memo):
+                    chosen: FrozenSet[ActionInstanciee], level: int, memo: Memo):
     """Pour chaque but du niveau, choisit une action le produisant et non
     mutex avec celles déjà choisies ; puis descend d'un niveau avec les
     préconditions de ces actions comme nouveaux sous-buts."""
@@ -87,17 +87,17 @@ def _choose_actions(graph: PlanningGraph, remaining_goals: List[Litteral],
             return None
         # Les no-op ne sont pas de vraies actions : on ne les garde pas
         # dans le plan final.
-        real_actions = frozenset(a for a in chosen if a.operator_name != "NOOP")
+        real_actions = frozenset(a for a in chosen if a.operateur != "NOOP")
         return sub_plan + [real_actions]
 
     goal, *rest = remaining_goals
 
     # Ce but est peut-être déjà produit par une action déjà choisie.
-    if any(goal in a.add_effects for a in chosen):
+    if any(goal in a.postconds for a in chosen):
         return _choose_actions(graph, rest, chosen, level, memo)
 
     action_mutex = graph.action_mutex_levels[level - 1]
-    producers = [a for a in graph.action_levels[level - 1] if goal in a.add_effects]
+    producers = [a for a in graph.action_levels[level - 1] if goal in a.postconds]
 
     # Ordre d'essai : les no-op (persistance) d'abord. Si un but est déjà
     # atteint à un niveau antérieur, le laisser persister est presque
@@ -105,7 +105,7 @@ def _choose_actions(graph: PlanningGraph, remaining_goals: List[Litteral],
     # vraie action envoie la recherche dans des branches où l'on refait
     # inutilement un travail déjà accompli. L'ordre n'affecte que la
     # vitesse de la recherche, pas les plans qu'elle peut trouver.
-    producers.sort(key=lambda a: (a.operator_name != "NOOP", a.name))
+    producers.sort(key=lambda a: (a.operateur != "NOOP", a.nom))
 
     for action in producers:
         if any(frozenset({action, c}) in action_mutex for c in chosen):
@@ -126,14 +126,14 @@ def _any_pair_mutex(literals, prop_mutex) -> bool:
     return False
 
 
-def _flatten_plan(plan_levels: List[FrozenSet[GroundedAction]]) -> List[str]:
+def _flatten_plan(plan_levels: List[FrozenSet[ActionInstanciee]]) -> List[str]:
     """Les actions d'un même niveau sont non-mutex entre elles : n'importe
     quel ordre entre elles donne un plan valide. On les sérialise donc
     niveau par niveau."""
     plan = []
     for level_actions in plan_levels:
-        for action in sorted(level_actions, key=lambda a: a.name):
-            plan.append(action.name)
+        for action in sorted(level_actions, key=lambda a: a.nom):
+            plan.append(action.nom)
     return plan
 
 
@@ -142,7 +142,7 @@ def DoPlan(r_ops: str, r_facts: str, verbose: bool = False) -> Optional[List[str
     problème décrit par r_ops et r_facts, ou None si aucun plan n'existe."""
 
     problem = charger_probleme(r_ops, r_facts)
-    actions = ground_all_operators(problem)
+    actions = instancier_tous_operateurs(problem)
     graph = PlanningGraph(problem, actions)
     memo: Memo = {}
 

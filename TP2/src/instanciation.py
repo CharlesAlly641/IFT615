@@ -1,6 +1,4 @@
 """
-instanciation.py
------------------
 Prend les opérateurs génériques (avec variables comme <rocket>, <place>)
 produits par analyseur_domaine.py, et génère toutes les actions concrètes
 possibles en substituant les variables par les objets du bon type.
@@ -16,78 +14,71 @@ utilisés directement par graphe_planification.py.
 
 import itertools
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
 from parseur_donnees import Operateur, Litteral, ProblemePlanification
 
 
 @dataclass(frozen=True)
-class GroundedAction:
-    name: str                      # ex: "LOAD_alex_r1_London"
-    operator_name: str             # ex: "LOAD"
-    args: Tuple[str, ...]          # ex: ("alex", "r1", "London")
-    preconds: frozenset            # littéraux concrets requis
-    add_effects: frozenset         # littéraux concrets ajoutés
-    del_effects: frozenset         # littéraux concrets supprimés
+class ActionInstanciee:
+    nom: str                      # ex: "LOAD_alex_r1_London"
+    operateur: str                # ex: "LOAD"
+    args: Tuple[str, ...]         # ex: ("alex", "r1", "London")
+    preconds: frozenset
+    postconds: frozenset
+    delete_effects: frozenset
 
     def __repr__(self):
-        return self.name
+        return self.nom
 
 
-def _substitute(literal: Litteral, mapping: Dict[str, str]) -> Litteral:
+def substituer(litteral: Litteral, mapping: Dict[str, str]) -> tuple[str | None | Any, ...]:
     """Remplace chaque variable d'un littéral par sa valeur concrète.
 
     Le premier élément d'un littéral est le nom du prédicat (ex: "at"),
     il n'est jamais substitué -- seuls les arguments le sont.
     """
-    predicate, *args = literal
-    return (predicate,) + tuple(mapping.get(a, a) for a in args)
+    predicat, *args = litteral
+    return (predicat,) + tuple(mapping.get(a, a) for a in args)
 
 
-def ground_operator(op: Operateur, objects_by_type: Dict[str, List[str]]) -> List[GroundedAction]:
+def instancier_operateur(op: Operateur, objets_par_type: Dict[str, List[str]]) -> List[ActionInstanciee]:
     """Génère toutes les instances concrètes d'un opérateur donné."""
-    var_names = [v for v, _ in op.params]
-    var_types = [t for _, t in op.params]
+    noms_var = [v for v, _ in op.params]
+    types_var = [t for _, t in op.params]
 
     # Pour chaque variable, la liste des objets compatibles avec son type
     try:
-        domains = [objects_by_type[t] for t in var_types]
+        domaines = [objets_par_type[t] for t in types_var]
     except KeyError as e:
         raise ValueError(
             f"Type d'objet {e} utilisé par l'opérateur {op.nom} "
             f"mais absent des objets déclarés dans le fichier de faits."
         )
 
-    grounded_actions = []
-    for combo in itertools.product(*domains):
-        mapping = dict(zip(var_names, combo))
+    actions_instancie = []
+    for combinaison in itertools.product(*domaines):
+        correspondances = dict(zip(noms_var, combinaison))
 
-        preconds = frozenset(_substitute(lit, mapping) for lit in op.preconds)
-        add_effects = frozenset(_substitute(lit, mapping) for lit in op.postconds)
-        del_effects = frozenset(_substitute(lit, mapping) for lit in op.delete_effects)
+        preconds = frozenset(substituer(lit, correspondances) for lit in op.preconds)
+        postconds = frozenset(substituer(lit, correspondances) for lit in op.postconds)
+        delete_effects = frozenset(substituer(lit, correspondances) for lit in op.delete_effects)
 
-        name = "_".join([op.nom] + list(combo))
+        nom = "_".join([op.nom] + list(combinaison))
 
-        grounded_actions.append(GroundedAction(
-            name=name,
-            operator_name=op.nom,
-            args=combo,
-            preconds=preconds,
-            add_effects=add_effects,
-            del_effects=del_effects,
-        ))
+        actions_instancie.append(ActionInstanciee(nom,op.nom,combinaison,preconds,postconds,delete_effects,))
 
-    return grounded_actions
+    return actions_instancie
 
 
-def ground_all_operators(problem: ProblemePlanification) -> List[GroundedAction]:
+def instancier_tous_operateurs(probleme: ProblemePlanification) -> List[ActionInstanciee]:
     """Génère toutes les actions concrètes pour tous les opérateurs du problème."""
-    all_actions = []
-    for op in problem.operateurs.values():
-        all_actions.extend(ground_operator(op, problem.objets_par_type))
-    return all_actions
+    actions = []
+    for op in probleme.operateurs.values():
+        actions.extend(instancier_operateur(op, probleme.objets_par_type))
+    return actions
 
-
+# Test local du fichier
 if __name__ == "__main__":
     import glob
     from parseur_donnees import charger_probleme
@@ -96,11 +87,11 @@ if __name__ == "__main__":
     facts_file = glob.glob("../*/r_fact2.txt")[0]
 
     problem = charger_probleme(ops_file, facts_file)
-    actions = ground_all_operators(problem)
+    actions = instancier_tous_operateurs(problem)
 
     print(f"Nombre total d'actions instanciées : {len(actions)}\n")
     for a in actions:
-        print(a.name)
+        print(a.nom)
         print(f"   preconds: {sorted(a.preconds)}")
-        print(f"   add:      {sorted(a.add_effects)}")
-        print(f"   del:      {sorted(a.del_effects)}")
+        print(f"   add:      {sorted(a.postconds)}")
+        print(f"   del:      {sorted(a.delete_effects)}")
