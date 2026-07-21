@@ -1,20 +1,12 @@
 """
-graphe_planification.py
-------------------------
-Construit le planning graph de Graphplan, niveau par niveau (diapos 55-56
-du chapitre 6), et calcule les ensembles mutex à chaque niveau.
+Construit le planning graph de Graphplan, niveau par niveau,
+et calcule l'ensemble mutex avec les actions et propositions à chaque niveau.
 
-Structure du graphe :
-    P0 -> A1 -> P1 -> A2 -> P2 -> ...
-
-  - prop_levels[i]         : ensemble de littéraux (propositions) au niveau i
-  - action_levels[i]       : actions applicables entre prop_levels[i] et prop_levels[i+1]
-                              (inclut les actions no-op, pour la persistance)
-  - action_mutex_levels[i] : paires d'actions mutex dans action_levels[i]
-  - prop_mutex_levels[i]   : paires de propositions mutex dans prop_levels[i]
-
-Deux littéraux/actions mutex sont représentés par un frozenset({x, y})
-de taille 2, mis dans un set() -- pratique et rapide à tester (`in`).
+Structure : P0 -> A1 -> P1 -> A2 -> P2 -> ...
+  - niveaux_propositions[i]       : propositions au niveau i
+  - niveaux_actions[i]            : actions au niveau i (incluant les no-op, pour la persistance)
+  - niveaux_actions_mutex[i]      : paires d'actions mutuellement exclusives au niveau i
+  - niveaux_propositions_mutex[i] : paires de propositions mutuellement exclusives au niveau i
 """
 
 from dataclasses import dataclass, field
@@ -23,10 +15,10 @@ from typing import FrozenSet, List, Set
 from parseur_donnees import Litteral, ProblemePlanification
 from instanciation import ActionInstanciee
 
-MutexPair = FrozenSet  # frozenset({a, b}) de taille 2
+PaireMutex = FrozenSet  # frozenset({a, b}) de taille 2
 
 
-def make_noop(literal: Litteral) -> ActionInstanciee:
+def action_noop(literal: Litteral) -> ActionInstanciee:
     """Action no-op : persiste un littéral d'un niveau à l'autre sans rien changer."""
     return ActionInstanciee(
         nom=f"NOOP_{'_'.join(literal)}",
@@ -40,58 +32,60 @@ def make_noop(literal: Litteral) -> ActionInstanciee:
 
 @dataclass
 class PlanningGraph:
-    problem: ProblemePlanification
-    all_actions: List[ActionInstanciee]
+    probleme: ProblemePlanification
+    liste_actions: List[ActionInstanciee]
 
-    prop_levels: List[FrozenSet[Litteral]] = field(default_factory=list)
-    action_levels: List[FrozenSet[ActionInstanciee]] = field(default_factory=list)
-    action_mutex_levels: List[Set[MutexPair]] = field(default_factory=list)
-    prop_mutex_levels: List[Set[MutexPair]] = field(default_factory=list)
+    niveaux_propositions: List[FrozenSet[Litteral]] = field(default_factory=list)
+    niveaux_actions: List[FrozenSet[ActionInstanciee]] = field(default_factory=list)
+    niveaux_actions_mutex: List[Set[PaireMutex]] = field(default_factory=list)
+    niveaux_propositions_mutex: List[Set[PaireMutex]] = field(default_factory=list)
 
     def __post_init__(self):
-        self.prop_levels = [self.problem.etat_initial]
-        # Au niveau 0, aucune action n'a encore rien produit -> pas de mutex
-        # (on suppose l'état initial cohérent, ce qui est le cas ici puisqu'on
-        # ne représente que des littéraux positifs, sans négation explicite).
-        self.prop_mutex_levels = [set()]
+        # Aucun mutex au premier niveau
+        self.niveaux_propositions = [self.probleme.etat_initial]
+        self.niveaux_propositions_mutex = [set()]
 
     @property
-    def depth(self) -> int:
+    def profondeur(self) -> int:
         """Nombre de niveaux d'actions déjà construits."""
-        return len(self.action_levels)
+        return len(self.niveaux_actions)
 
-    def expand(self) -> None:
-        """Ajoute un niveau au graphe (une couche d'actions + la couche de propositions suivante)."""
-        last_props = self.prop_levels[-1]
-        last_prop_mutex = self.prop_mutex_levels[-1]
+    def agrandir(self) -> None:
+        """Ajoute un niveau au graphe (actions + propositions)."""
+        propositions_precedentes = self.niveaux_propositions[-1]
+        propositions_precedentes_mutex = self.niveaux_propositions_mutex[-1]
 
         # Une action est applicable si ses préconditions sont présentes au
-        # niveau précédent ET non-mutex deux à deux : deux préconditions
-        # mutex ne peuvent jamais être vraies en même temps, donc l'action
-        # ne pourrait de toute façon jamais s'exécuter. Sans cette seconde
-        # condition, le graphe devient trop optimiste (des propositions
-        # apparaissent à des niveaux où elles ne sont pas réellement
-        # atteignables) et l'extraction doit ensuite explorer d'énormes
-        # branches vouées à l'échec.
-        applicable = [
-            a for a in self.all_actions
-            if a.preconds <= last_props and not self._has_mutex_preconds(a, last_prop_mutex)
+        # niveau de proposition précédent et si ses préconditions ne sont pas mutex.
+        actions_applicables = [
+            a for a in self.liste_actions
+            # On vérifie si les preconds de a font partie du niveau de proposition précédent
+            if a.preconds <= propositions_precedentes
+            # On vérifie qu'il n'existe pas de paire de préconds qui sont mutex
+            and not self.preconds_sont_mutex(a, propositions_precedentes_mutex)
         ]
-        noops = [make_noop(p) for p in last_props]
-        level_actions = applicable + noops
+        # Construction du nouveau niveau d'actions
+        noops = [action_noop(p) for p in propositions_precedentes]
+        actions_courantes = actions_applicables + noops
+        propositions_courantes = frozenset().union(
+            *(a.postconds for a in actions_courantes)) if actions_courantes else frozenset()
 
-        action_mutex = self._compute_action_mutex(level_actions, last_prop_mutex)
+        # Construction de l'ensemble mutex
+        mutex_actions_courantes = self.construire_mutex_actions(actions_courantes, propositions_precedentes_mutex)
+        mutex_propositions_courantes = self.construire_mutex_propositions(propositions_courantes, actions_courantes, mutex_actions_courantes)
 
-        next_props = frozenset().union(*(a.postconds for a in level_actions)) if level_actions else frozenset()
-        prop_mutex = self._compute_prop_mutex(next_props, level_actions, action_mutex)
+        # Ajout du nouveau niveau
+        self.niveaux_actions.append(frozenset(actions_courantes))
+        self.niveaux_actions_mutex.append(mutex_actions_courantes)
+        self.niveaux_propositions.append(propositions_courantes)
+        self.niveaux_propositions_mutex.append(mutex_propositions_courantes)
 
-        self.action_levels.append(frozenset(level_actions))
-        self.action_mutex_levels.append(action_mutex)
-        self.prop_levels.append(next_props)
-        self.prop_mutex_levels.append(prop_mutex)
-
+    # ------------------------------------------------------------
+    # Les fonctions suivantes aident à construire l'ensemble mutex
+    # ------------------------------------------------------------
+    
     @staticmethod
-    def _has_mutex_preconds(action: ActionInstanciee, prop_mutex: Set[MutexPair]) -> bool:
+    def preconds_sont_mutex(action: ActionInstanciee, prop_mutex: Set[PaireMutex]) -> bool:
         """Vrai si deux préconditions de l'action sont mutex entre elles."""
         preconds = list(action.preconds)
         for i in range(len(preconds)):
@@ -100,71 +94,73 @@ class PlanningGraph:
                     return True
         return False
 
-    def _compute_action_mutex(
-        self, actions: List[ActionInstanciee], prop_mutex_prev: Set[MutexPair]
-    ) -> Set[MutexPair]:
-        mutex_pairs: Set[MutexPair] = set()
+    def construire_mutex_actions(
+        self, actions: List[ActionInstanciee], mutex_propositions: Set[PaireMutex]
+    ) -> Set[PaireMutex]:
+        mutex_actions: Set[PaireMutex] = set()
 
         for i in range(len(actions)):
             for j in range(i + 1, len(actions)):
                 a1, a2 = actions[i], actions[j]
-                if self._actions_are_mutex(a1, a2, prop_mutex_prev):
-                    mutex_pairs.add(frozenset({a1, a2}))
+                if self.actions_sont_mutex(a1, a2, mutex_propositions):
+                    mutex_actions.add(frozenset({a1, a2}))
 
-        return mutex_pairs
+        return mutex_actions
 
     @staticmethod
-    def _actions_are_mutex(
-        a1: ActionInstanciee, a2: ActionInstanciee, prop_mutex_prev: Set[MutexPair]
+    def actions_sont_mutex(
+        a1: ActionInstanciee, a2: ActionInstanciee, mutex_propositions: Set[PaireMutex]
     ) -> bool:
-        # 1. Inconsistance : l'une annule un effet de l'autre
+        # Inconsistance : l'une annule l'effet d'une autre
         if a1.postconds & a2.delete_effects or a2.postconds & a1.delete_effects:
             return True
 
-        # 2. Interférence : l'une supprime une précondition de l'autre
+        # Interférence : l'une supprime la précondition d'une autre
         if a1.delete_effects & a2.preconds or a2.delete_effects & a1.preconds:
             return True
 
-        # 3. Ressources conflictuelles : préconditions mutex entre elles
+        # Ressources conflictuelles : elles ont des préconditions mutex
         for p1 in a1.preconds:
             for p2 in a2.preconds:
-                if frozenset({p1, p2}) in prop_mutex_prev:
+                if frozenset({p1, p2}) in mutex_propositions:
                     return True
 
         return False
 
     @staticmethod
-    def _compute_prop_mutex(
-        props: FrozenSet[Litteral],
+    def construire_mutex_propositions(
+        propositions: FrozenSet[Litteral],
         actions: List[ActionInstanciee],
-        action_mutex: Set[MutexPair],
-    ) -> Set[MutexPair]:
+        action_mutex: Set[PaireMutex],
+    ) -> Set[PaireMutex]:
         # Pour chaque proposition, la liste des actions qui la produisent
-        producers = {p: [a for a in actions if p in a.postconds] for p in props}
+        producteurs = {}
+        for p in propositions:
+            producteurs[p] = [a for a in actions if p in a.postconds]
 
-        prop_list = list(props)
-        mutex_pairs: Set[MutexPair] = set()
+        liste_propositions = list(propositions)
+        mutex_propositions: Set[PaireMutex] = set()
 
-        for i in range(len(prop_list)):
-            for j in range(i + 1, len(prop_list)):
-                p1, p2 = prop_list[i], prop_list[j]
+        for i in range(len(liste_propositions)):
+            for j in range(i + 1, len(liste_propositions)):
+                p1, p2 = liste_propositions[i], liste_propositions[j]
 
-                if PlanningGraph._is_negation(p1, p2):
-                    mutex_pairs.add(frozenset({p1, p2}))
+                # Une proposition est la négation de l'autre
+                if PlanningGraph.est_negation(p1, p2):
+                    mutex_propositions.add(frozenset({p1, p2}))
                     continue
 
-                if PlanningGraph._support_inconsistent(
-                    producers[p1], producers[p2], action_mutex
+                # Toutes les paires d'actions qui ont des propositions comme effets
+                if PlanningGraph.support_inconsistant(
+                    producteurs[p1], producteurs[p2], action_mutex
                 ):
-                    mutex_pairs.add(frozenset({p1, p2}))
+                    mutex_propositions.add(frozenset({p1, p2}))
 
-        return mutex_pairs
+        return mutex_propositions
 
     @staticmethod
-    def _is_negation(p1: Litteral, p2: Litteral) -> bool:
-        """Vrai si p1 == not(p2). Le domaine rocket ne représente que des
-        littéraux positifs (pas de préfixe "not"), donc ce cas ne se
-        produit jamais ici -- gardé pour rester général."""
+    def est_negation(p1: Litteral, p2: Litteral) -> bool:
+        """Vrai si p1 == not(p2)"""
         return (
             p1[0] == "not" and p1[1:] == p2
         ) or (
@@ -172,54 +168,54 @@ class PlanningGraph:
         )
 
     @staticmethod
-    def _support_inconsistent(
-        producers_p1: List[ActionInstanciee],
-        producers_p2: List[ActionInstanciee],
-        action_mutex: Set[MutexPair],
+    def support_inconsistant(
+        producteurs_p1: List[ActionInstanciee],
+        producteurs_p2: List[ActionInstanciee],
+        action_mutex: Set[PaireMutex],
     ) -> bool:
-        """Vrai si TOUTES les paires d'actions productrices de p1 et p2
+        """Vrai si toutes les paires d'actions productrices de p1 et p2
         sont mutex entre elles (aucune paire ne peut coexister)."""
-        if not producers_p1 or not producers_p2:
+        if not producteurs_p1 or not producteurs_p2:
             return False
 
-        for a in producers_p1:
-            for b in producers_p2:
+        for a in producteurs_p1:
+            for b in producteurs_p2:
                 if a == b:
-                    return False  # une même action produit les deux -> pas mutex
+                    return False  # une même action produit les deux
                 if frozenset({a, b}) not in action_mutex:
-                    return False  # une paire compatible existe -> pas mutex
+                    return False  # une paire compatible existe
 
         return True
 
-    def goals_reachable(self) -> bool:
+    def buts_realisables(self) -> bool:
         """Vrai si tous les buts sont présents au dernier niveau et non-mutex entre eux."""
-        goals = self.problem.buts
-        last_props = self.prop_levels[-1]
-        last_prop_mutex = self.prop_mutex_levels[-1]
+        buts_du_probleme = self.probleme.buts
+        dernier_niveau_proposition = self.niveaux_propositions[-1]
+        dernier_niveau_proposition_mutex = self.niveaux_propositions_mutex[-1]
 
-        if not goals <= last_props:
-            return False
+        if not buts_du_probleme <= dernier_niveau_proposition:
+            return False # Les buts ne sont pas atteints
 
-        goal_list = list(goals)
-        for i in range(len(goal_list)):
-            for j in range(i + 1, len(goal_list)):
-                if frozenset({goal_list[i], goal_list[j]}) in last_prop_mutex:
+        buts = list(buts_du_probleme)
+        for i in range(len(buts)):
+            for j in range(i + 1, len(buts)):
+                if frozenset({buts[i], buts[j]}) in dernier_niveau_proposition_mutex:
                     return False
 
         return True
 
-    def has_leveled_off(self) -> bool:
+    def graphe_est_stable(self) -> bool:
         """Vrai si le graphe s'est stabilisé (2 derniers niveaux identiques,
-        propositions ET mutex) -- signe qu'il est inutile de continuer à
-        étendre le graphe si les buts ne sont toujours pas atteignables."""
-        if len(self.prop_levels) < 2:
+        propositions et mutex). Si c'est vrai, cela signifie que les buts ne seront
+        pas atteints s'ils ne le sont pas déjà."""
+        if len(self.niveaux_propositions) < 2:
             return False
         return (
-            self.prop_levels[-1] == self.prop_levels[-2]
-            and self.prop_mutex_levels[-1] == self.prop_mutex_levels[-2]
+                self.niveaux_propositions[-1] == self.niveaux_propositions[-2]
+                and self.niveaux_propositions_mutex[-1] == self.niveaux_propositions_mutex[-2]
         )
 
-
+# Test local du fichier
 if __name__ == "__main__":
     import glob
     from parseur_donnees import charger_probleme
@@ -234,12 +230,12 @@ if __name__ == "__main__":
     graph = PlanningGraph(problem, actions)
 
     for niveau in range(1, 6):
-        graph.expand()
+        graph.agrandir()
         print(f"--- Après expansion {niveau} ---")
-        print(f"  # actions niveau: {len(graph.action_levels[-1])} "
-              f"(dont mutex: {len(graph.action_mutex_levels[-1])})")
-        print(f"  # propositions niveau: {len(graph.prop_levels[-1])} "
-              f"(dont mutex: {len(graph.prop_mutex_levels[-1])})")
-        print(f"  buts atteignables et non-mutex ? {graph.goals_reachable()}")
-        if graph.goals_reachable():
+        print(f"  # actions niveau: {len(graph.niveaux_actions[-1])} "
+              f"(dont mutex: {len(graph.niveaux_actions_mutex[-1])})")
+        print(f"  # propositions niveau: {len(graph.niveaux_propositions[-1])} "
+              f"(dont mutex: {len(graph.niveaux_propositions_mutex[-1])})")
+        print(f"  buts atteignables et non-mutex ? {graph.buts_realisables()}")
+        if graph.buts_realisables():
             break

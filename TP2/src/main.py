@@ -82,7 +82,7 @@ def executer_avec_trace(fichier_ops, fichier_facts):
     print("/* ------------- Construction du graphe de planification --------*/")
     print("/*---------------------------------------------------------------*/")
     print()
-    print(f"Niveau 0 (propositions) : {len(graphe.prop_levels[0])} propositions "
+    print(f"Niveau 0 (propositions) : {len(graphe.niveaux_propositions[0])} propositions "
           f"(état initial), 0 paire mutex")
     print()
 
@@ -90,12 +90,12 @@ def executer_avec_trace(fichier_ops, fichier_facts):
     taille_memo_precedente = None
 
     while True:
-        if graphe.goals_reachable():
+        if graphe.buts_realisables():
             print("  -> Tous les buts sont présents et non-mutex à ce niveau.")
             print("     Tentative d'extraction (recherche à rebours)...")
 
             debut_extraction = time.time()
-            solution = _extract_solution(graphe, probleme.buts, graphe.depth, memo)
+            solution = _extract_solution(graphe, probleme.buts, graphe.profondeur, memo)
             duree = time.time() - debut_extraction
 
             if solution is not None:
@@ -114,7 +114,7 @@ def executer_avec_trace(fichier_ops, fichier_facts):
             print(f"     Échec de l'extraction à ce niveau ({duree:.2f}s). "
                   f"Table de mémorisation : {len(memo)} entrées.")
 
-            if graphe.has_leveled_off() and len(memo) == taille_memo_precedente:
+            if graphe.graphe_est_stable() and len(memo) == taille_memo_precedente:
                 print()
                 print("  -> Le graphe et la table de mémorisation sont tous deux "
                       "stabilisés :")
@@ -126,7 +126,7 @@ def executer_avec_trace(fichier_ops, fichier_facts):
             taille_memo_precedente = len(memo)
             print()
 
-        elif graphe.has_leveled_off() and graphe.depth > 0:
+        elif graphe.graphe_est_stable() and graphe.profondeur > 0:
             print("  -> Le graphe est stabilisé et les buts ne sont toujours pas "
                   "tous présents")
             print("     et non-mutex : ils ne le seront jamais -> aucun plan "
@@ -134,26 +134,26 @@ def executer_avec_trace(fichier_ops, fichier_facts):
             print(f"Temps total : {time.time() - depart:.2f}s")
             return None
 
-        graphe.expand()
+        graphe.agrandir()
 
-        niveau = graphe.depth
-        actions_niveau = graphe.action_levels[-1]
+        niveau = graphe.profondeur
+        actions_niveau = graphe.niveaux_actions[-1]
         vraies_actions = [a for a in actions_niveau if a.operateur != "NOOP"]
-        propositions = graphe.prop_levels[-1]
+        propositions = graphe.niveaux_propositions[-1]
 
         print(f"Niveau {niveau} (actions) : {len(actions_niveau)} actions "
               f"({len(vraies_actions)} réelles + {len(actions_niveau) - len(vraies_actions)} no-op), "
-              f"{len(graphe.action_mutex_levels[-1])} paires mutex")
+              f"{len(graphe.niveaux_actions_mutex[-1])} paires mutex")
         print(f"Niveau {niveau} (propositions) : {len(propositions)} propositions, "
-              f"{len(graphe.prop_mutex_levels[-1])} paires mutex")
+              f"{len(graphe.niveaux_propositions_mutex[-1])} paires mutex")
 
-        nouvelles = propositions - graphe.prop_levels[-2]
+        nouvelles = propositions - graphe.niveaux_propositions[-2]
         if nouvelles:
             apercu = sorted(f"({' '.join(p)})" for p in nouvelles)
             print(f"  Nouvelles propositions ({len(nouvelles)}) : "
                   f"{', '.join(apercu[:6])}{' ...' if len(apercu) > 6 else ''}")
 
-        if not graphe.goals_reachable():
+        if not graphe.buts_realisables():
             manquants = probleme.buts - propositions
             if manquants:
                 print(f"  Buts pas encore atteignables : {len(manquants)}")

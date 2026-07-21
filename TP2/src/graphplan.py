@@ -49,7 +49,7 @@ def _extract_solution(graph: PlanningGraph, goals: FrozenSet[Litteral],
 
     # Niveau 0 : les buts doivent simplement être vrais dans l'état initial.
     if level == 0:
-        return [] if goals <= graph.prop_levels[0] else None
+        return [] if goals <= graph.niveaux_propositions[0] else None
 
     key = (level, goals)
     if key in memo:
@@ -57,7 +57,7 @@ def _extract_solution(graph: PlanningGraph, goals: FrozenSet[Litteral],
 
     # Si deux buts sont mutex à ce niveau, ils ne peuvent pas être atteints
     # ensemble : inutile de chercher.
-    if _any_pair_mutex(goals, graph.prop_mutex_levels[level]):
+    if _any_pair_mutex(goals, graph.niveaux_propositions_mutex[level]):
         memo[key] = None
         return None
 
@@ -96,8 +96,8 @@ def _choose_actions(graph: PlanningGraph, remaining_goals: List[Litteral],
     if any(goal in a.postconds for a in chosen):
         return _choose_actions(graph, rest, chosen, level, memo)
 
-    action_mutex = graph.action_mutex_levels[level - 1]
-    producers = [a for a in graph.action_levels[level - 1] if goal in a.postconds]
+    action_mutex = graph.niveaux_actions_mutex[level - 1]
+    producers = [a for a in graph.niveaux_actions[level - 1] if goal in a.postconds]
 
     # Ordre d'essai : les no-op (persistance) d'abord. Si un but est déjà
     # atteint à un niveau antérieur, le laisser persister est presque
@@ -156,13 +156,13 @@ def DoPlan(r_ops: str, r_facts: str, verbose: bool = False) -> Optional[List[str
 
     while True:
         if verbose:
-            print(f"--- Niveau {graph.depth} : {len(graph.prop_levels[-1])} propositions, "
-                  f"{len(graph.prop_mutex_levels[-1])} paires mutex ---")
+            print(f"--- Niveau {graph.profondeur} : {len(graph.niveaux_propositions[-1])} propositions, "
+                  f"{len(graph.niveaux_propositions_mutex[-1])} paires mutex ---")
 
-        if graph.goals_reachable():
+        if graph.buts_realisables():
             if verbose:
                 print("  Buts présents et non-mutex -> extraction...")
-            solution = _extract_solution(graph, problem.goals, graph.depth, memo)
+            solution = _extract_solution(graph, problem.goals, graph.profondeur, memo)
             if solution is not None:
                 plan = _flatten_plan(solution)
                 if verbose:
@@ -175,13 +175,13 @@ def DoPlan(r_ops: str, r_facts: str, verbose: bool = False) -> Optional[List[str
             # table de mémorisation n'a plus rien appris depuis la dernière
             # itération, alors aucune expansion supplémentaire ne peut
             # changer le résultat -> il n'existe aucun plan.
-            if graph.has_leveled_off() and len(memo) == prev_memo_size:
+            if graph.graphe_est_stable() and len(memo) == prev_memo_size:
                 if verbose:
                     print("  Graphe et mémorisation stabilisés -> aucun plan n'existe.")
                 return None
             prev_memo_size = len(memo)
 
-        elif graph.has_leveled_off():
+        elif graph.graphe_est_stable():
             # Les buts ne sont toujours pas tous présents et non-mutex, alors
             # que le graphe n'évolue plus : étendre davantage ne changera
             # rien, donc ils ne le seront jamais -> aucun plan n'existe.
@@ -192,7 +192,7 @@ def DoPlan(r_ops: str, r_facts: str, verbose: bool = False) -> Optional[List[str
                       "-> aucun plan n'existe.")
             return None
 
-        graph.expand()
+        graph.agrandir()
 
 
 if __name__ == "__main__":
