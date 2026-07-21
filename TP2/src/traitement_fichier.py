@@ -1,6 +1,6 @@
 """
 Ce fichier permet d'analyser et de lire la structure des fichiers de texte
-tels que ceux fournis en exemple.
+tels que ceux fournis en exemple (r_fact, r_ops)
 
 Ce code transforme la structure du texte en listes Python
 Un bloc entre parenthèses `(...)` devient une liste Python (`list`).

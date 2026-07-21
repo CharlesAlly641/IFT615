@@ -31,17 +31,17 @@ DoPlan(r_ops, r_facts) est le point d'entrée demandé par l'énoncé.
 
 from typing import Dict, FrozenSet, List, Optional, Tuple
 
-from parseur_donnees import load_problem, Literal
+from parseur_donnees import charger_probleme, Litteral
 from instanciation import GroundedAction, ground_all_operators
 from planning_graph import PlanningGraph
 
 # Table de mémorisation : (niveau, ensemble de buts) -> plan trouvé, ou None
 # si on sait déjà que cet ensemble de buts est impossible à ce niveau.
-MemoKey = Tuple[int, FrozenSet[Literal]]
+MemoKey = Tuple[int, FrozenSet[Litteral]]
 Memo = Dict[MemoKey, Optional[List[FrozenSet[GroundedAction]]]]
 
 
-def _extract_solution(graph: PlanningGraph, goals: FrozenSet[Literal],
+def _extract_solution(graph: PlanningGraph, goals: FrozenSet[Litteral],
                       level: int, memo: Memo):
     """EXTRACT-SOLUTION : cherche à rebours un plan atteignant `goals` au
     niveau `level`. Retourne la liste des niveaux d'actions (du premier
@@ -72,7 +72,7 @@ def _extract_solution(graph: PlanningGraph, goals: FrozenSet[Literal],
     return result
 
 
-def _choose_actions(graph: PlanningGraph, remaining_goals: List[Literal],
+def _choose_actions(graph: PlanningGraph, remaining_goals: List[Litteral],
                     chosen: FrozenSet[GroundedAction], level: int, memo: Memo):
     """Pour chaque but du niveau, choisit une action le produisant et non
     mutex avec celles déjà choisies ; puis descend d'un niveau avec les
@@ -141,7 +141,7 @@ def DoPlan(r_ops: str, r_facts: str, verbose: bool = False) -> Optional[List[str
     """Point d'entrée : retourne un plan (liste de noms d'actions) pour le
     problème décrit par r_ops et r_facts, ou None si aucun plan n'existe."""
 
-    problem = load_problem(r_ops, r_facts)
+    problem = charger_probleme(r_ops, r_facts)
     actions = ground_all_operators(problem)
     graph = PlanningGraph(problem, actions)
     memo: Memo = {}

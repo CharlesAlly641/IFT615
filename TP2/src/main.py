@@ -27,7 +27,7 @@ affiché, au format des fichiers simulation_factX.txt fournis.
 import sys
 import time
 
-from parseur_donnees import load_problem
+from parseur_donnees import charger_probleme
 from instanciation import ground_all_operators
 from planning_graph import PlanningGraph
 from graphplan import DoPlan, _extract_solution, _flatten_plan
@@ -54,15 +54,15 @@ def afficher_probleme(probleme, actions):
     print("/*---------------------------------------------------------------*/")
     print()
     print("Objets du domaine :")
-    for type_objet, objets in probleme.objects_by_type.items():
+    for type_objet, objets in probleme.objets_par_type.items():
         print(f"  {type_objet:8} : {', '.join(objets)}")
     print()
-    print(f"Conditions initiales ({len(probleme.initial_state)} faits) :")
-    for fait in sorted(probleme.initial_state):
+    print(f"Conditions initiales ({len(probleme.etat_initial)} faits) :")
+    for fait in sorted(probleme.etat_initial):
         print(f"  ({' '.join(fait)})")
     print()
-    print(f"Objectifs ({len(probleme.goals)}) :")
-    for but in sorted(probleme.goals):
+    print(f"Objectifs ({len(probleme.buts)}) :")
+    for but in sorted(probleme.buts):
         print(f"  ({' '.join(but)})")
     print()
     print(f"Actions instanciées à partir des opérateurs : {len(actions)}")
@@ -71,7 +71,7 @@ def afficher_probleme(probleme, actions):
 
 def executer_avec_trace(fichier_ops, fichier_facts):
     """Rejoue l'algorithme en affichant le détail de chaque étape."""
-    probleme = load_problem(fichier_ops, fichier_facts)
+    probleme = charger_probleme(fichier_ops, fichier_facts)
     actions = ground_all_operators(probleme)
     graphe = PlanningGraph(probleme, actions)
     memo = {}
@@ -95,7 +95,7 @@ def executer_avec_trace(fichier_ops, fichier_facts):
             print("     Tentative d'extraction (recherche à rebours)...")
 
             debut_extraction = time.time()
-            solution = _extract_solution(graphe, probleme.goals, graphe.depth, memo)
+            solution = _extract_solution(graphe, probleme.buts, graphe.depth, memo)
             duree = time.time() - debut_extraction
 
             if solution is not None:
@@ -154,7 +154,7 @@ def executer_avec_trace(fichier_ops, fichier_facts):
                   f"{', '.join(apercu[:6])}{' ...' if len(apercu) > 6 else ''}")
 
         if not graphe.goals_reachable():
-            manquants = probleme.goals - propositions
+            manquants = probleme.buts - propositions
             if manquants:
                 print(f"  Buts pas encore atteignables : {len(manquants)}")
             else:

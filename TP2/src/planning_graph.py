@@ -20,13 +20,13 @@ de taille 2, mis dans un set() -- pratique et rapide à tester (`in`).
 from dataclasses import dataclass, field
 from typing import FrozenSet, List, Set
 
-from parseur_donnees import Literal, PlanningProblem
+from parseur_donnees import Litteral, ProblemePlanification
 from instanciation import GroundedAction
 
 MutexPair = FrozenSet  # frozenset({a, b}) de taille 2
 
 
-def make_noop(literal: Literal) -> GroundedAction:
+def make_noop(literal: Litteral) -> GroundedAction:
     """Action no-op : persiste un littéral d'un niveau à l'autre sans rien changer."""
     return GroundedAction(
         name=f"NOOP_{'_'.join(literal)}",
@@ -40,16 +40,16 @@ def make_noop(literal: Literal) -> GroundedAction:
 
 @dataclass
 class PlanningGraph:
-    problem: PlanningProblem
+    problem: ProblemePlanification
     all_actions: List[GroundedAction]
 
-    prop_levels: List[FrozenSet[Literal]] = field(default_factory=list)
+    prop_levels: List[FrozenSet[Litteral]] = field(default_factory=list)
     action_levels: List[FrozenSet[GroundedAction]] = field(default_factory=list)
     action_mutex_levels: List[Set[MutexPair]] = field(default_factory=list)
     prop_mutex_levels: List[Set[MutexPair]] = field(default_factory=list)
 
     def __post_init__(self):
-        self.prop_levels = [self.problem.initial_state]
+        self.prop_levels = [self.problem.etat_initial]
         # Au niveau 0, aucune action n'a encore rien produit -> pas de mutex
         # (on suppose l'état initial cohérent, ce qui est le cas ici puisqu'on
         # ne représente que des littéraux positifs, sans négation explicite).
@@ -135,7 +135,7 @@ class PlanningGraph:
 
     @staticmethod
     def _compute_prop_mutex(
-        props: FrozenSet[Literal],
+        props: FrozenSet[Litteral],
         actions: List[GroundedAction],
         action_mutex: Set[MutexPair],
     ) -> Set[MutexPair]:
@@ -161,7 +161,7 @@ class PlanningGraph:
         return mutex_pairs
 
     @staticmethod
-    def _is_negation(p1: Literal, p2: Literal) -> bool:
+    def _is_negation(p1: Litteral, p2: Litteral) -> bool:
         """Vrai si p1 == not(p2). Le domaine rocket ne représente que des
         littéraux positifs (pas de préfixe "not"), donc ce cas ne se
         produit jamais ici -- gardé pour rester général."""
@@ -193,7 +193,7 @@ class PlanningGraph:
 
     def goals_reachable(self) -> bool:
         """Vrai si tous les buts sont présents au dernier niveau et non-mutex entre eux."""
-        goals = self.problem.goals
+        goals = self.problem.buts
         last_props = self.prop_levels[-1]
         last_prop_mutex = self.prop_mutex_levels[-1]
 
@@ -222,13 +222,13 @@ class PlanningGraph:
 
 if __name__ == "__main__":
     import glob
-    from parseur_donnees import load_problem
+    from parseur_donnees import charger_probleme
     from instanciation import ground_all_operators
 
     ops_file = glob.glob("../*/r_ops.txt")[0]
     facts_file = glob.glob("../*/r_fact2.txt")[0]
 
-    problem = load_problem(ops_file, facts_file)
+    problem = charger_probleme(ops_file, facts_file)
     actions = ground_all_operators(problem)
 
     graph = PlanningGraph(problem, actions)
