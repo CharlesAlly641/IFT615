@@ -83,7 +83,7 @@ class PlanningGraph:
     # ------------------------------------------------------------
     # Les fonctions suivantes aident à construire l'ensemble mutex
     # ------------------------------------------------------------
-    
+
     @staticmethod
     def preconds_sont_mutex(action: ActionInstanciee, prop_mutex: Set[PaireMutex]) -> bool:
         """Vrai si deux préconditions de l'action sont mutex entre elles."""
@@ -134,9 +134,9 @@ class PlanningGraph:
         action_mutex: Set[PaireMutex],
     ) -> Set[PaireMutex]:
         # Pour chaque proposition, la liste des actions qui la produisent
-        producteurs = {}
+        actions_candidates = {}
         for p in propositions:
-            producteurs[p] = [a for a in actions if p in a.postconds]
+            actions_candidates[p] = [a for a in actions if p in a.postconds]
 
         liste_propositions = list(propositions)
         mutex_propositions: Set[PaireMutex] = set()
@@ -152,7 +152,7 @@ class PlanningGraph:
 
                 # Toutes les paires d'actions qui ont des propositions comme effets
                 if PlanningGraph.support_inconsistant(
-                    producteurs[p1], producteurs[p2], action_mutex
+                    actions_candidates[p1], actions_candidates[p2], action_mutex
                 ):
                     mutex_propositions.add(frozenset({p1, p2}))
 

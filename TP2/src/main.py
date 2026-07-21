@@ -30,7 +30,7 @@ import time
 from parseur_donnees import charger_probleme
 from instanciation import instancier_tous_operateurs
 from planning_graph import PlanningGraph
-from graphplan import DoPlan, _extract_solution, _flatten_plan
+from graphplan import DoPlan, extract_solution, _flatten_plan
 
 
 def afficher_plan(plan):
@@ -95,7 +95,7 @@ def executer_avec_trace(fichier_ops, fichier_facts):
             print("     Tentative d'extraction (recherche à rebours)...")
 
             debut_extraction = time.time()
-            solution = _extract_solution(graphe, probleme.buts, graphe.profondeur, memo)
+            solution = extract_solution(graphe, probleme.buts, graphe.profondeur, memo)
             duree = time.time() - debut_extraction
 
             if solution is not None:

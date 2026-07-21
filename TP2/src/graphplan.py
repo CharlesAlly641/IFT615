@@ -1,8 +1,5 @@
 """
-graphplan.py
-------------
-Algorithme GRAPHPLAN, suivant le pseudocode du cours (diapo 57) :
-
+Adaptation de l'algorithme Graphplan des notes de cours :
     function GRAPHPLAN(problem) returns solution or failure
         graph <- INITIAL-PLANNING-GRAPH(problem)
         goals <- GOALS[problem]
@@ -12,21 +9,7 @@ Algorithme GRAPHPLAN, suivant le pseudocode du cours (diapo 57) :
                 if solution != failure then return solution
                 else if NO-SOLUTION-POSSIBLE(graph) then return failure
             graph <- EXPAND-GRAPH(graph, problem)
-
-et l'extraction arrière (diapo 58) :
-
-    - Recherche à rebours, niveau par niveau, pour mieux exploiter les mutex
-    - Pour chaque but à l'itération n, trouver une action ayant ce but dans
-      ses effets et non mutex avec une action déjà choisie
-    - Les préconditions de ces actions deviennent les sous-buts à l'étape n-1
-    - Mémorisation
-
-La mémorisation (table des "no-goods") retient les couples
-(niveau, ensemble de buts) déjà connus comme impossibles, ce qui évite de
-refaire une recherche vouée à l'échec. C'est aussi elle qui fournit le
-critère d'arrêt de NO-SOLUTION-POSSIBLE.
-
-DoPlan(r_ops, r_facts) est le point d'entrée demandé par l'énoncé.
+La fonction DoPlan(r_ops, r_facts) est le point d'entrée demandé dans l'énoncé.
 """
 
 from typing import Dict, FrozenSet, List, Optional, Tuple
@@ -35,90 +18,87 @@ from parseur_donnees import charger_probleme, Litteral
 from instanciation import ActionInstanciee, instancier_tous_operateurs
 from planning_graph import PlanningGraph
 
-# Table de mémorisation : (niveau, ensemble de buts) -> plan trouvé, ou None
-# si on sait déjà que cet ensemble de buts est impossible à ce niveau.
+# Table de mémorisation pour la recherche à rebours.
+# Contient le niveau du graphe, l'ensemble des sous-buts et la liste d'actions si valide
 MemoKey = Tuple[int, FrozenSet[Litteral]]
 Memo = Dict[MemoKey, Optional[List[FrozenSet[ActionInstanciee]]]]
 
 
-def _extract_solution(graph: PlanningGraph, goals: FrozenSet[Litteral],
-                      level: int, memo: Memo):
-    """EXTRACT-SOLUTION : cherche à rebours un plan atteignant `goals` au
-    niveau `level`. Retourne la liste des niveaux d'actions (du premier
-    exécuté au dernier), ou None en cas d'échec."""
+def extract_solution(graphe: PlanningGraph, buts: FrozenSet[Litteral],
+                     niveau: int, memo: Memo):
+    """Rcherche à rebours un plan atteignant les buts à un certaine niveau.
+    Retourne la liste des niveaux d'actions (du premier exécuté au dernier),
+     ou None en cas d'échec."""
 
-    # Niveau 0 : les buts doivent simplement être vrais dans l'état initial.
-    if level == 0:
-        return [] if goals <= graph.niveaux_propositions[0] else None
+    if niveau == 0:
+        # Les buts doivent être vrais dans l'état initial.
+        return [] if buts <= graphe.niveaux_propositions[0] else None
 
-    key = (level, goals)
+    key = (niveau, buts)
     if key in memo:
         return memo[key]
 
-    # Si deux buts sont mutex à ce niveau, ils ne peuvent pas être atteints
-    # ensemble : inutile de chercher.
-    if _any_pair_mutex(goals, graph.niveaux_propositions_mutex[level]):
+    # Exploiter les relations mutex.
+    # Si mutex alors pas de possiblité de satisfaire les buts à ce niveau.
+    if paire_est_mutex(buts, graphe.niveaux_propositions_mutex[niveau]):
         memo[key] = None
         return None
 
-    result = _choose_actions(
-        graph,
-        remaining_goals=list(goals),
-        chosen=frozenset(),
-        level=level,
+    # Trouver une action ayant le but dans ces effets
+    result = choisir_action(
+        graphe,
+        buts_restants=list(buts),
+        choix=frozenset(),
+        niveau=niveau,
         memo=memo,
     )
     memo[key] = result
     return result
 
 
-def _choose_actions(graph: PlanningGraph, remaining_goals: List[Litteral],
-                    chosen: FrozenSet[ActionInstanciee], level: int, memo: Memo):
-    """Pour chaque but du niveau, choisit une action le produisant et non
-    mutex avec celles déjà choisies ; puis descend d'un niveau avec les
-    préconditions de ces actions comme nouveaux sous-buts."""
+def choisir_action(graphe: PlanningGraph, buts_restants: List[Litteral],
+                   choix: FrozenSet[ActionInstanciee], niveau: int, memo: Memo):
+    """
+    Pour chaque but du niveau, trouver une action ayant ce but dans ses effets
+    et non mutex avec une action déjà choisie.
+    """
 
-    if not remaining_goals:
-        # Tous les buts de ce niveau sont couverts : les préconditions des
-        # actions choisies deviennent les sous-buts du niveau précédent.
-        sub_goals = frozenset().union(*(a.preconds for a in chosen)) if chosen else frozenset()
-        sub_plan = _extract_solution(graph, sub_goals, level - 1, memo)
-        if sub_plan is None:
+    if not buts_restants:
+        # Les préconditions des actions choisies deviennent les sous-buts du niveau précédent.
+        sous_buts = frozenset().union(*(a.preconds for a in choix)) if choix else frozenset()
+        # Récursion vers le niveau précédent
+        sous_plan = extract_solution(graphe, sous_buts, niveau - 1, memo)
+        if sous_plan is None:
             return None
-        # Les no-op ne sont pas de vraies actions : on ne les garde pas
-        # dans le plan final.
-        real_actions = frozenset(a for a in chosen if a.operateur != "NOOP")
-        return sub_plan + [real_actions]
+        # On retire les actions noop dans le plan final
+        vraies_actions = frozenset(a for a in choix if a.operateur != "NOOP")
+        return sous_plan + [vraies_actions]
 
-    goal, *rest = remaining_goals
+    goal, *rest = buts_restants
 
     # Ce but est peut-être déjà produit par une action déjà choisie.
-    if any(goal in a.postconds for a in chosen):
-        return _choose_actions(graph, rest, chosen, level, memo)
+    if any(goal in a.postconds for a in choix):
+        return choisir_action(graphe, rest, choix, niveau, memo)
 
-    action_mutex = graph.niveaux_actions_mutex[level - 1]
-    producers = [a for a in graph.niveaux_actions[level - 1] if goal in a.postconds]
+    action_mutex = graphe.niveaux_actions_mutex[niveau - 1]
+    actions_candidates = [a for a in graphe.niveaux_actions[niveau - 1] if goal in a.postconds]
 
-    # Ordre d'essai : les no-op (persistance) d'abord. Si un but est déjà
-    # atteint à un niveau antérieur, le laisser persister est presque
-    # toujours le bon choix ; essayer d'abord de le ré-atteindre par une
-    # vraie action envoie la recherche dans des branches où l'on refait
-    # inutilement un travail déjà accompli. L'ordre n'affecte que la
-    # vitesse de la recherche, pas les plans qu'elle peut trouver.
-    producers.sort(key=lambda a: (a.operateur != "NOOP", a.nom))
+    # Les NOOP sont essayés en premier afin de limiter les branches explorées.
+    # Cela améliore les performances sans modifier la validité du résultat.
+    actions_candidates.sort(key=lambda a: (a.operateur != "NOOP", a.nom))
 
-    for action in producers:
-        if any(frozenset({action, c}) in action_mutex for c in chosen):
+    for action in actions_candidates:
+        if any(frozenset({action, c}) in action_mutex for c in choix):
             continue  # mutex avec une action déjà choisie
-        result = _choose_actions(graph, rest, chosen | {action}, level, memo)
+        result = choisir_action(graphe, rest, choix | {action}, niveau, memo)
         if result is not None:
             return result
 
     return None  # aucune action ne convient pour ce but
 
 
-def _any_pair_mutex(literals, prop_mutex) -> bool:
-    lits = list(literals)
+def paire_est_mutex(litterals, prop_mutex) -> bool:
+    lits = list(litterals)
     for i in range(len(lits)):
         for j in range(i + 1, len(lits)):
             if frozenset({lits[i], lits[j]}) in prop_mutex:
@@ -162,7 +142,7 @@ def DoPlan(r_ops: str, r_facts: str, verbose: bool = False) -> Optional[List[str
         if graph.buts_realisables():
             if verbose:
                 print("  Buts présents et non-mutex -> extraction...")
-            solution = _extract_solution(graph, problem.goals, graph.profondeur, memo)
+            solution = extract_solution(graph, problem.goals, graph.profondeur, memo)
             if solution is not None:
                 plan = _flatten_plan(solution)
                 if verbose:
