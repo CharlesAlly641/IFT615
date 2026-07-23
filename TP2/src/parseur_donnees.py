@@ -11,7 +11,7 @@ structures de données dont Graphplan a besoin :
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
-from traitement_fichier import parse_all, Element
+from traitement_fichier import parser_texte, Element
 
 # Litéral concret (avec instanciation) ou avec des variables
 Litteral = Tuple[str, ...]  # ex: ("at", "r1", "London")  ou variable: ("at","<rocket>","<place>")
@@ -66,7 +66,7 @@ def parse_operateurs(chemin: str) -> Dict[str, Operateur]:
     """Lit le fichier des opérateurs (r_ops) et construit un
     dictionnaire {nom_operateur: Operateur}."""
     texte = lire_fichier(chemin)
-    expressions = parse_all(texte)
+    expressions = parser_texte(texte)
 
     operateurs: Dict[str, Operateur] = {}
     for expression in expressions:
@@ -98,7 +98,7 @@ def parse_faits(chemin: str) -> Tuple[Dict[str, List[str]], frozenset, frozenset
     """Lit un fichier de faits r_fact et retourne :
     (objets_par_type, etat_initial, buts)."""
     texte = lire_fichier(chemin)
-    expressions_racine = parse_all(texte)
+    expressions_racine = parser_texte(texte)
 
     objets_par_type: Dict[str, List[str]] = {}
     etat_initial, buts = [], []

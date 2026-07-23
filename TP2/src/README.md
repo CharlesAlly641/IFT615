@@ -75,6 +75,12 @@ quand l'ensemble doit lui-même être stocké dans une autre collection :
 Le `frozenset` est donc simplement un `set` avec la contrainte
 d'immuabilité nécessaire pour ces deux usages.
 
+## Pourquoi Element = Union[str, List["Element"]]
+Le texte source a des parenthèses imbriquées. Par exemple, operator contient 
+params, qui contient des paires (<object> CARGO)). La récursivité est nécessaire 
+pour représenter ça : un Element est soit un mot (str), soit une liste d'Elements qui peuvent 
+eux-mêmes être des mots ou d'autres listes, à n'importe quelle profondeur. str seul ne suffirait 
+pas, puisqu'il ne pourrait pas représenter un groupement entre parenthèses.
 ## Autres choix d'implémentation notables
 
 - **`@dataclass(frozen=True)` pour `ActionInstanciee`** : rend les

@@ -1,22 +1,23 @@
 """
-Ce fichier permet d'analyser et de lire la structure des fichiers de texte
-tels que ceux fournis en exemple (r_fact, r_ops)
+Ce fichier permet d'analyser et de lire les fichiers de texte.
+Dans le contexte de la planification, il est utilisé pour les fichiers de texte suivants :
+ - r_ops : fichier texte contenant la liste des opérateurs permis (actions).
+ - r_facts : fichier texte comprenant la liste des conditions initiales et les objectifs fixés.
 
-Ce code transforme la structure du texte en listes Python
-Un bloc entre parenthèses `(...)` devient une liste Python (`list`).
+Chaque bloc de texte entre parenthèses dans les fichiers textes devient une liste Python.
 
-Exemple de conversion :
-  Texte source : "(at r1 London)"
-  Résultat     : ['at', 'r1', 'London']
+Résultat attendu à la sortie du fichier :
+  Entrée : "(at r1 London)"
+  Sortie : ['at', 'r1', 'London']
 """
 
 from typing import List, Union
 
-# Un élément est un mot ou une liste contenant d'autres éléments.
+# Un élément peut être un mot ou une liste contenant d'autres éléments.
 Element = Union[str, List["Element"]]
 
-def tokenize(text: str) -> List[str]:
-    """Découpe le texte du fichier en une liste de tokens."""
+def tokenizer(text: str) -> List[str]:
+    """Découpe le texte du fichier en une liste de "tokens"."""
 
     # Normaliser les fins de ligne
     text = text.replace("\r\n", "\n").replace("\r", "\n")
@@ -32,54 +33,55 @@ def tokenize(text: str) -> List[str]:
 
 def retirer_commentaires(text: str) -> str:
     """Supprime tous les commentaires /* ... */ dans le texte."""
-    out = []
+    sortie = []
     i = 0
     n = len(text)
     while i < n:
         if text[i:i + 2] == "/*":
             # On cherche la fin du commentaire
-            end = text.find("*/", i + 2)
-            if end == -1:
+            fin = text.find("*/", i + 2)
+            if fin == -1:
                 break  # commentaire non fermé
-            i = end + 2
+            i = fin + 2
         else:
             # Aucun commentaire
-            out.append(text[i])
+            sortie.append(text[i])
             i += 1
-    return "".join(out)
+    return "".join(sortie)
 
 
-def parse_all(text: str) -> List[Element]:
-    """Analyse un texte complet contenant une ou plusieurs expressions entre parenthèses."""
-    tokens = tokenize(text)
+def parser_texte(text: str) -> List[Element]:
+    """Analyse un texte complet contenant une ou plusieurs sections entre parenthèses."""
+    tokens = tokenizer(text)
     elements = []
     pos = 0
     while pos < len(tokens):
-        element, pos = parse_one(tokens, pos)
+        element, pos = parser_token(tokens, pos)
         elements.append(element)
     return elements
 
 
-def parse_one(tokens: List[str], pos: int):
+def parser_token(tokens: List[str], pos: int):
     """Analyse un seul bloc (mot ou sous-liste) à partir de la position donnée."""
     if tokens[pos] != "(":
         return tokens[pos], pos + 1
 
-    pos += 1  # on consomme '('
+    pos += 1  # on dépasse la '('
     items: List[Element] = []
     while tokens[pos] != ")":
         if tokens[pos] == "(":
-            sub, pos = parse_one(tokens, pos)
+            # On fait un appel récursif si on a un autre bloc dans le bloc précédent
+            sub, pos = parser_token(tokens, pos)
             items.append(sub)
         else:
             items.append(tokens[pos])
             pos += 1
-    pos += 1  # on consomme ')'
+    pos += 1  # on dépasse la ')'
     return items, pos
 
 
 # Test local du fichier
 if __name__ == "__main__":
-    sample = "(operator LOAD (params (<object> CARGO)) (preconds (at <rocket> <place>)))"
+    test = "(operator LOAD (params (<object> CARGO)) (preconds (at <rocket> <place>)))"
     import pprint
-    pprint.pprint(parse_all(sample))
+    pprint.pprint(parser_texte(test))
