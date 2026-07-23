@@ -16,7 +16,7 @@ import itertools
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Any
 
-from parseur_donnees import Operateur, Litteral, ProblemePlanification
+from parseur_donnees import Operateur, Proposition, ProblemePlanification
 
 
 @dataclass(frozen=True)
@@ -32,7 +32,7 @@ class ActionInstanciee:
         return self.nom
 
 
-def substituer(litteral: Litteral, mapping: Dict[str, str]) -> tuple[str | None | Any, ...]:
+def substituer(litteral: Proposition, mapping: Dict[str, str]) -> tuple[str | None | Any, ...]:
     """Remplace chaque variable d'un littéral par sa valeur concrète.
 
     Le premier élément d'un littéral est le nom du prédicat (ex: "at"),

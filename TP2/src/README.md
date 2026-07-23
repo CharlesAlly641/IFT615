@@ -81,6 +81,9 @@ params, qui contient des paires (<object> CARGO)). La récursivité est nécessa
 pour représenter ça : un Element est soit un mot (str), soit une liste d'Elements qui peuvent 
 eux-mêmes être des mots ou d'autres listes, à n'importe quelle profondeur. str seul ne suffirait 
 pas, puisqu'il ne pourrait pas représenter un groupement entre parenthèses.
+
+## (À rédiger) Pourquoi tuple dans parseur_données
+
 ## Autres choix d'implémentation notables
 
 - **`@dataclass(frozen=True)` pour `ActionInstanciee`** : rend les

@@ -14,17 +14,17 @@ La fonction DoPlan(r_ops, r_facts) est le point d'entrée demandé dans l'énonc
 
 from typing import Dict, FrozenSet, List, Optional, Tuple
 
-from parseur_donnees import charger_probleme, Litteral
+from parseur_donnees import charger_probleme, Proposition
 from instanciation import ActionInstanciee, instancier_tous_operateurs
 from planning_graph import PlanningGraph
 
 # Table de mémorisation pour la recherche à rebours.
 # Contient le niveau du graphe, l'ensemble des sous-buts et la liste d'actions si valide
-MemoKey = Tuple[int, FrozenSet[Litteral]]
+MemoKey = Tuple[int, FrozenSet[Proposition]]
 Memo = Dict[MemoKey, Optional[List[FrozenSet[ActionInstanciee]]]]
 
 
-def extract_solution(graphe: PlanningGraph, buts: FrozenSet[Litteral],
+def extract_solution(graphe: PlanningGraph, buts: FrozenSet[Proposition],
                      niveau: int, memo: Memo):
     """Rcherche à rebours un plan atteignant les buts à un certaine niveau.
     Retourne la liste des niveaux d'actions (du premier exécuté au dernier),
@@ -56,7 +56,7 @@ def extract_solution(graphe: PlanningGraph, buts: FrozenSet[Litteral],
     return result
 
 
-def choisir_action(graphe: PlanningGraph, buts_restants: List[Litteral],
+def choisir_action(graphe: PlanningGraph, buts_restants: List[Proposition],
                    choix: FrozenSet[ActionInstanciee], niveau: int, memo: Memo):
     """
     Pour chaque but du niveau, trouver une action ayant ce but dans ses effets

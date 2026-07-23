@@ -12,13 +12,13 @@ Structure : P0 -> A1 -> P1 -> A2 -> P2 -> ...
 from dataclasses import dataclass, field
 from typing import FrozenSet, List, Set
 
-from parseur_donnees import Litteral, ProblemePlanification
+from parseur_donnees import Proposition, ProblemePlanification
 from instanciation import ActionInstanciee
 
 PaireMutex = FrozenSet  # frozenset({a, b}) de taille 2
 
 
-def action_noop(literal: Litteral) -> ActionInstanciee:
+def action_noop(literal: Proposition) -> ActionInstanciee:
     """Action no-op : persiste un littéral d'un niveau à l'autre sans rien changer."""
     return ActionInstanciee(
         nom=f"NOOP_{'_'.join(literal)}",
@@ -35,7 +35,7 @@ class PlanningGraph:
     probleme: ProblemePlanification
     liste_actions: List[ActionInstanciee]
 
-    niveaux_propositions: List[FrozenSet[Litteral]] = field(default_factory=list)
+    niveaux_propositions: List[FrozenSet[Proposition]] = field(default_factory=list)
     niveaux_actions: List[FrozenSet[ActionInstanciee]] = field(default_factory=list)
     niveaux_actions_mutex: List[Set[PaireMutex]] = field(default_factory=list)
     niveaux_propositions_mutex: List[Set[PaireMutex]] = field(default_factory=list)
@@ -129,7 +129,7 @@ class PlanningGraph:
 
     @staticmethod
     def construire_mutex_propositions(
-        propositions: FrozenSet[Litteral],
+        propositions: FrozenSet[Proposition],
         actions: List[ActionInstanciee],
         action_mutex: Set[PaireMutex],
     ) -> Set[PaireMutex]:
@@ -159,7 +159,7 @@ class PlanningGraph:
         return mutex_propositions
 
     @staticmethod
-    def est_negation(p1: Litteral, p2: Litteral) -> bool:
+    def est_negation(p1: Proposition, p2: Proposition) -> bool:
         """Vrai si p1 == not(p2)"""
         return (
             p1[0] == "not" and p1[1:] == p2
