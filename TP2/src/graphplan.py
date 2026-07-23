@@ -127,9 +127,9 @@ def DoPlan(r_ops: str, r_facts: str, verbose: bool = False) -> Optional[List[str
     memo: Memo = {}
 
     if verbose:
-        print(f"Objets           : {problem.objects_by_type}")
-        print(f"État initial     : {len(problem.initial_state)} faits")
-        print(f"Buts             : {len(problem.goals)}")
+        print(f"Objets           : {problem.objets_par_type}")
+        print(f"État initial     : {len(problem.etat_initial)} faits")
+        print(f"Buts             : {len(problem.buts)}")
         print(f"Actions possibles: {len(actions)}\n")
 
     prev_memo_size = None
@@ -142,7 +142,7 @@ def DoPlan(r_ops: str, r_facts: str, verbose: bool = False) -> Optional[List[str
         if graph.buts_realisables():
             if verbose:
                 print("  Buts présents et non-mutex -> extraction...")
-            solution = extract_solution(graph, problem.goals, graph.profondeur, memo)
+            solution = extract_solution(graph, problem.buts, graph.profondeur, memo)
             if solution is not None:
                 plan = _flatten_plan(solution)
                 if verbose:
